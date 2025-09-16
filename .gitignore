@@ -1,19 +1,5 @@
-# Node dependencies
 node_modules/
-
-# Environment variables
 .env
-
-# WhatsApp session credentials
 sessions/
-!sessions/.gitkeep
-
-# Logs
 *.log
-
-# OS-specific clutter
 .DS_Store
-Thumbs.db
-
-# Optional: VSCode settings
-.vscode/
