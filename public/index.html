@@ -1,176 +1,99 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>CYPHER PAIRS — WhatsApp Session Manager</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cypher Pairs</title>
   <style>
     body {
-      font-family: Inter, system-ui, Arial;
-      margin: 0;
-      background: #071029;
-      color: #e6eef6;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    header {
-      padding: 24px;
+      background: #0b1220;
+      color: #fff;
+      font-family: Arial, sans-serif;
       text-align: center;
-    }
-    main {
-      flex: 1;
-      display: grid;
-      grid-template-columns: 1fr;
-      max-width: 760px;
-      margin: 0 auto;
-      gap: 18px;
-      padding: 16px;
-    }
-    .card {
-      background: rgba(255,255,255,0.03);
-      padding: 16px;
-      border-radius: 10px;
-      box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+      padding: 40px;
     }
     input, button {
       padding: 10px;
-      border-radius: 8px;
-      border: 0;
-      outline: none;
-      width: 100%;
-      margin-top: 8px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+    }
+    input {
+      width: 300px;
     }
     button {
+      background: #1e90ff;
+      color: white;
       cursor: pointer;
-      background: #1e2a3a;
-      color: #e6eef6;
     }
-    footer {
-      text-align: center;
-      padding: 12px;
-      font-size: 13px;
-      color: #93b2d6;
-    }
-    .hint {
-      font-size: 13px;
-      color: #9fb4d7;
-      margin-top: 8px;
+    button:hover {
+      background: #007acc;
     }
     .status {
-      margin-top: 8px;
+      margin-top: 20px;
       font-size: 14px;
-      background: rgba(255,255,255,0.05);
-      padding: 8px;
-      border-radius: 6px;
+      color: #ccc;
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>⚡ CYPHER PAIRS</h1>
-    <p class="hint">Start sessions, view QR, or request pairing codes. Admin token is requested when needed (not stored in source).</p>
-  </header>
+  <h1>🚀 Cypher WhatsApp Session Manager</h1>
 
-  <main>
-    <div class="card">
-      <h3>Start / Ensure a session</h3>
-      <input id="sessionId" placeholder="session id (e.g. cypher, bot1)" />
-      <button onclick="startSession()">Start session</button>
-      <div class="status" id="statusBox">No action yet.</div>
-    </div>
+  <input type="text" id="sessionId" placeholder="Enter session ID (e.g. cypher)" />
+  <input type="text" id="adminToken" placeholder="Enter admin token" />
 
-    <div class="card">
-      <h3>Show QR</h3>
-      <input id="showSessionId" placeholder="session id to view QR"/>
-      <button onclick="showQR()">Open QR in new tab</button>
-      <div class="status" id="qrStatus">QR not requested.</div>
-    </div>
+  <br/>
+  <button onclick="startSession()">Start Session</button>
+  <button onclick="stopSession()">Stop Session</button>
+  <button onclick="checkStatus()">Check Status</button>
+  <button onclick="viewQR()">View QR</button>
 
-    <div class="card">
-      <h3>Request Pair Code</h3>
-      <input id="pairSessionId" placeholder="session id" />
-      <input id="phoneNumber" placeholder="phone number with country code (e.g. 2348012345678)" />
-      <button onclick="getPairCode()">Request pair code</button>
-      <div class="status" id="pairCodeBox">No request yet.</div>
-      <p class="hint">If automatic pair-code generation isn't supported, use the QR tab to scan.</p>
-    </div>
+  <div class="status" id="status"></div>
 
-    <div class="card">
-      <h3>Check Session Status</h3>
-      <input id="statusSessionId" placeholder="session id to check" />
-      <button onclick="checkStatus()">Check status</button>
-      <div class="status" id="statusResult">No check yet.</div>
-    </div>
-  </main>
+  <script>
+    async function startSession() {
+      const id = document.getElementById("sessionId").value.trim();
+      const token = document.getElementById("adminToken").value.trim();
+      if (!id || !token) return alert("Session ID and admin token are required");
 
-  <footer>CYPHER PAIRS © 2025 — Keep your ADMIN_TOKEN in Render env variables (do not commit).</footer>
-
-<script>
-  async function promptToken() {
-    const t = prompt("Enter ADMIN_TOKEN to perform this admin action:");
-    if (!t) alert("Token required.");
-    return t;
-  }
-
-  async function startSession() {
-    const id = document.getElementById("sessionId").value.trim();
-    if (!id) return alert("Enter a session id");
-    const token = await promptToken();
-    if (!token) return;
-    document.getElementById("statusBox").innerText = "Starting session...";
-    try {
-      const res = await fetch("/api/start-session?token=" + encodeURIComponent(token), {
+      const res = await fetch(`/api/start-session?id=${id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
         body: JSON.stringify({ id })
       });
       const data = await res.json();
-      document.getElementById("statusBox").innerText = JSON.stringify(data, null, 2);
-    } catch (e) {
-      document.getElementById("statusBox").innerText = "Error: " + e.message;
+      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
     }
-  }
 
-  function showQR() {
-    const id = document.getElementById("showSessionId").value.trim() || document.getElementById("sessionId").value.trim();
-    if (!id) return alert("Enter session id");
-    window.open("/qr/" + encodeURIComponent(id), "_blank");
-    document.getElementById("qrStatus").innerText = "Opened /qr/" + id;
-  }
+    async function stopSession() {
+      const id = document.getElementById("sessionId").value.trim();
+      const token = document.getElementById("adminToken").value.trim();
+      if (!id || !token) return alert("Session ID and admin token are required");
 
-  async function getPairCode() {
-    const id = document.getElementById("pairSessionId").value.trim();
-    const number = document.getElementById("phoneNumber").value.trim();
-    if (!id || !number) return alert("Enter both session id and phone number");
-    const token = await promptToken();
-    if (!token) return;
-    document.getElementById("pairCodeBox").innerText = "Requesting pair code...";
-    try {
-      const res = await fetch("/api/pair-code?token=" + encodeURIComponent(token), {
+      const res = await fetch(`/api/stop-session?id=${id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, number })
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ id })
       });
       const data = await res.json();
-      document.getElementById("pairCodeBox").innerText = JSON.stringify(data, null, 2);
-    } catch (e) {
-      document.getElementById("pairCodeBox").innerText = "Error: " + e.message;
+      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
     }
-  }
 
-  async function checkStatus() {
-    const id = document.getElementById("statusSessionId").value.trim();
-    if (!id) return alert("Enter session id");
-    document.getElementById("statusResult").innerText = "Checking...";
-    try {
-      const res = await fetch("/api/status/" + encodeURIComponent(id));
+    async function checkStatus() {
+      const id = document.getElementById("sessionId").value.trim();
+      if (!id) return alert("Session ID is required");
+
+      const res = await fetch(`/api/status/${id}`);
       const data = await res.json();
-      document.getElementById("statusResult").innerText = JSON.stringify(data, null, 2);
-    } catch (e) {
-      document.getElementById("statusResult").innerText = "Error: " + e.message;
+      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
     }
-  }
-</script>
+
+    function viewQR() {
+      const id = document.getElementById("sessionId").value.trim();
+      if (!id) return alert("Session ID is required");
+      window.open(`/qr/${id}`, "_blank");
+    }
+  </script>
 </body>
 </html>
