@@ -13,10 +13,10 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env["CYPHER TOKENS"] || "";
+const CUSTOM_PAIR_CODE = process.env.CUSTOM_PAIR_CODE || "CYPHER-2025";
+const SESSIONS_DIR = process.env.SESSIONS_DIR || path.join(__dirname, "sessions");
 
-const SESSIONS_DIR = path.join(__dirname, "sessions");
 fs.ensureDirSync(SESSIONS_DIR);
-
 const sockets = new Map();
 
 function checkAdmin(req, res) {
@@ -49,7 +49,7 @@ async function createSession(sessionId) {
       const jid = sock.user?.id;
       if (jid) {
         await sock.sendMessage(jid, {
-          text: `Welcome to Cypher's WhatsApp pairing bot for session IDs. Your session ID is "${sessionId}".`
+          text: `Welcome to Cypher's WhatsApp pairing bot. Your session ID is "${sessionId}".`
         });
       }
     }
@@ -96,17 +96,17 @@ app.post("/api/pair-code", async (req, res) => {
 
   const id = req.body?.id || req.query?.id;
   const number = req.body?.number || req.query?.number;
-  if (!id || !number) return res.status(400).json({ ok: false, message: "Missing id or number" });
+  if (!id || !number) return res.status(400).json({ ok: false, message: "Missing session id or phone number" });
 
   const meta = sockets.get(id);
   if (!meta) return res.status(404).json({ ok: false, message: "Session not started" });
 
   try {
-    const { generatePairingQRCode } = await import("@whiskeysockets/baileys");
-    const { qr, id: pairingId } = await generatePairingQRCode(meta.sock, number);
-    return res.json({ ok: true, pairingId, message: "Pair code generated", qr });
+    const { generatePairingCode } = await import("@whiskeysockets/baileys");
+    const result = await generatePairingCode(meta.sock, CUSTOM_PAIR_CODE, number);
+    return res.json({ ok: true, code: CUSTOM_PAIR_CODE, number, message: "Custom pair code generated", result });
   } catch (e) {
-    return res.json({ ok: false, message: "Pair-code generation not available. Use QR instead." });
+    return res.json({ ok: false, message: "Pair-code generation failed or unsupported in this build." });
   }
 });
 
