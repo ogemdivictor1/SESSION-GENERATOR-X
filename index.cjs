@@ -2,17 +2,15 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const cookieParser = require("cookie-parser");
-const { default: makeWASocket, useMultiFileAuthState } = require("@whiskeysockets/baileys");
+const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static("public"));
 
-const ADMIN_TOKEN = process.env["ADMIN_TOKEN"] || "";
-const CUSTOM_PAIR_CODE = process.env["CUSTOM_PAIR_CODE"] || "CYPHER-2025";
-
-// ✅ Use local folder instead of root to avoid EACCES error
+const ADMIN_TOKEN = process.env["ADMIN"] || "";
+const CUSTOM_PAIR_CODE = process.env["CUSTO"] || "CYPHER-2025";
 const SESSIONS_DIR = path.join(process.cwd(), "sessions");
 
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
@@ -22,11 +20,26 @@ const activeSessions = {};
 async function initSession(number) {
   const sessionPath = path.join(SESSIONS_DIR, number);
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
-  const sock = makeWASocket({ auth: state });
+
+  const sock = makeWASocket({
+    version: await fetchLatestBaileysVersion(),
+    auth: state,
+    printQRInTerminal: false,
+  });
+
   sock.ev.on("creds.update", saveCreds);
   activeSessions[number] = sock;
   return sock;
 }
+
+app.post("/api/login", (req, res) => {
+  const { token } = req.body;
+  if (token === ADMIN_TOKEN) {
+    res.cookie("token", token, { httpOnly: true });
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ ok: false, message: "Invalid token" });
+});
 
 app.post("/api/pair", async (req, res) => {
   const { number } = req.body;
@@ -40,6 +53,7 @@ app.post("/api/pair", async (req, res) => {
     });
     return res.json({ ok: true, number, code: CUSTOM_PAIR_CODE });
   } catch (err) {
+    console.error("Baileys error:", err);
     return res.status(500).json({ ok: false, message: "Failed to generate pair code" });
   }
 });
@@ -52,6 +66,7 @@ app.get("/api/qr", async (req, res) => {
   try {
     const sock = activeSessions[number] || await initSession(number);
     let qr = null;
+
     sock.ev.on("connection.update", ({ qr: newQR }) => {
       if (newQR) qr = newQR;
     });
@@ -64,17 +79,9 @@ app.get("/api/qr", async (req, res) => {
       }
     }, 1500);
   } catch (err) {
+    console.error("QR error:", err);
     res.status(500).json({ ok: false, message: "Failed to load QR" });
   }
-});
-
-app.post("/api/login", (req, res) => {
-  const { token } = req.body;
-  if (token === ADMIN_TOKEN) {
-    res.cookie("token", token, { httpOnly: true });
-    return res.json({ ok: true });
-  }
-  res.status(401).json({ ok: false, message: "Invalid token" });
 });
 
 const PORT = process.env.PORT || 3000;
