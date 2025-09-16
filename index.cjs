@@ -1,102 +1,78 @@
-require("dotenv").config();
-const path = require("path");
-const fs = require("fs-extra");
-const express = require("express");
-const qrcode = require("qrcode");
-const cookieParser = require("cookie-parser");
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { default as makeWASocket, useMultiFileAuthState } from "@whiskeysockets/baileys";
+import cookieParser from "cookie-parser";
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static("public"));
 
-const PORT = process.env.PORT || 3000;
-const ADMIN_TOKEN = process.env["CYPHER_TOKENS"] || "";
-const CUSTOM_PAIR_CODE = process.env.CUSTOM_PAIR_CODE || "CYPHER-2025";
-const SESSION_ID = process.env.SESSION_ID || "cypher";
-const SESSIONS_DIR = path.join(__dirname, "sessions");
+const ADMIN_TOKEN = process.env["ADMIN_TOKEN"] || "";
+const CUSTOM_PAIR_CODE = process.env["CUSTOM_PAIR_CODE"] || "CYPHER-2025";
+const SESSIONS_DIR = path.join(process.cwd(), "sessions");
 
-fs.ensureDirSync(SESSIONS_DIR);
-const sockets = new Map();
+if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
-async function createSession(sessionId) {
-  if (sockets.has(sessionId)) return sockets.get(sessionId);
+const activeSessions = {};
 
-  const baileys = await import("@whiskeysockets/baileys");
-  const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = baileys;
-
-  const sessionFolder = path.join(SESSIONS_DIR, sessionId);
-  await fs.ensureDir(sessionFolder);
-
-  const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
-  const version = (await fetchLatestBaileysVersion()).version;
-
-  const sock = makeWASocket({ auth: state, version });
-  const meta = { sock, lastQR: null, sessionFolder };
-  sockets.set(sessionId, meta);
-
-  sock.ev.on("connection.update", async (update) => {
-    if (update?.qr) {
-      meta.lastQR = update.qr;
-    }
-    if (update?.connection === "open") {
-      await saveCreds();
-    }
-  });
-
+async function initSession(number) {
+  const sessionPath = path.join(SESSIONS_DIR, number);
+  const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+  const sock = makeWASocket({ auth: state });
   sock.ev.on("creds.update", saveCreds);
-  return meta;
+  activeSessions[number] = sock;
+  return sock;
 }
-
-// Auto-start session on boot
-createSession(SESSION_ID);
-
-function checkAuth(req, res) {
-  const token = req.cookies?.admin || req.query?.token || req.headers["x-admin-token"];
-  if (!ADMIN_TOKEN || token === ADMIN_TOKEN) return true;
-  res.status(403).send("Unauthorized");
-  return false;
-}
-
-app.get("/qr.html", async (req, res, next) => checkAuth(req, res) && next());
-app.get("/pair.html", async (req, res, next) => checkAuth(req, res) && next());
-app.get("/dashboard.html", async (req, res, next) => checkAuth(req, res) && next());
-
-app.get("/api/qr", async (req, res) => {
-  if (!checkAuth(req, res)) return;
-  const meta = sockets.get(SESSION_ID);
-  if (!meta?.lastQR) return res.status(404).send("QR not available");
-  const dataUrl = await qrcode.toDataURL(meta.lastQR);
-  res.json({ ok: true, qr: dataUrl });
-});
 
 app.post("/api/pair", async (req, res) => {
-  if (!checkAuth(req, res)) return;
-  const number = req.body?.number || req.query?.number;
-  if (!number) return res.status(400).json({ ok: false, message: "Missing phone number" });
-
-  const meta = sockets.get(SESSION_ID);
-  if (!meta) return res.status(500).json({ ok: false, message: "Session not ready" });
+  const { number } = req.body;
+  const token = req.cookies.token;
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ ok: false, message: "Unauthorized" });
 
   try {
-    const { generatePairingCode } = await import("@whiskeysockets/baileys");
-    const result = await generatePairingCode(meta.sock, CUSTOM_PAIR_CODE, number);
-    res.json({ ok: true, code: CUSTOM_PAIR_CODE, number, result });
-  } catch (e) {
-    res.json({ ok: false, message: "Pair code generation failed" });
+    const sock = activeSessions[number] || await initSession(number);
+    await sock.sendMessage(`${number}@s.whatsapp.net`, {
+      text: `✅ Your Cypher session is active.\nSession ID: ${number}\nPair Code: ${CUSTOM_PAIR_CODE}`
+    });
+    return res.json({ ok: true, number, code: CUSTOM_PAIR_CODE });
+  } catch (err) {
+    return res.status(500).json({ ok: false, message: "Failed to generate pair code" });
+  }
+});
+
+app.get("/api/qr", async (req, res) => {
+  const { number } = req.query;
+  const token = req.cookies.token;
+  if (token !== ADMIN_TOKEN) return res.status(403).json({ ok: false, message: "Unauthorized" });
+
+  try {
+    const sock = activeSessions[number] || await initSession(number);
+    let qr = null;
+    sock.ev.on("connection.update", ({ qr: newQR }) => {
+      if (newQR) qr = newQR;
+    });
+
+    setTimeout(() => {
+      if (qr) {
+        res.json({ ok: true, qr: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qr)}&size=300x300` });
+      } else {
+        res.json({ ok: false, message: "QR not available" });
+      }
+    }, 1500);
+  } catch (err) {
+    res.status(500).json({ ok: false, message: "Failed to load QR" });
   }
 });
 
 app.post("/api/login", (req, res) => {
-  const token = req.body?.token;
+  const { token } = req.body;
   if (token === ADMIN_TOKEN) {
-    res.cookie("admin", token, { httpOnly: true });
-    res.json({ ok: true });
-  } else {
-    res.status(403).json({ ok: false, message: "Invalid token" });
+    res.cookie("token", token, { httpOnly: true });
+    return res.json({ ok: true });
   }
+  res.status(401).json({ ok: false, message: "Invalid token" });
 });
 
-app.listen(PORT, () => {
-  console.log(`CYPHER server running on http://0.0.0.0:${PORT}`);
-});
+app.listen(3000, () => console.log("Cypher bot running on port 3000"));
