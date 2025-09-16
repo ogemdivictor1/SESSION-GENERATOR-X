@@ -1,85 +1,29 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
+  <title>Cypher Session Bot</title>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cypher Login</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      font-family: 'Share Tech Mono', monospace;
-      background: linear-gradient(135deg, #000000, #003300);
-      color: #00ff00;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    .card {
-      background: rgba(0,255,0,0.05);
-      border: 1px solid #00ff00;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px #00ff00;
+      background-color: #000;
+      color: #0f0;
+      font-family: monospace;
       text-align: center;
-      width: 90%;
-      max-width: 400px;
+      padding-top: 100px;
     }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 15px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: none;
-    }
-    input {
-      background: #001100;
-      color: #00ff00;
-    }
-    input::placeholder {
-      color: #33ff33;
-    }
-    button {
-      background: #00ff00;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #33ff33;
-    }
-    .error {
-      margin-top: 15px;
-      color: red;
-      font-size: 14px;
+    a {
+      color: #0f0;
+      text-decoration: none;
+      font-size: 20px;
+      display: block;
+      margin: 20px 0;
     }
   </style>
 </head>
 <body>
-  <h1>🔐 Cypher Admin Login</h1>
-  <div class="card">
-    <input type="text" id="token" placeholder="Enter Admin Token" />
-    <button onclick="login()">Login</button>
-    <div class="error" id="errorMsg"></div>
-  </div>
-
-  <script>
-    async function login() {
-      const token = document.getElementById("token").value.trim();
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        window.location.href = "/dashboard.html";
-      } else {
-        document.getElementById("errorMsg").innerText = "Invalid token.";
-      }
-    }
-  </script>
+  <h1>🚀 Cypher Session Bot</h1>
+  <a href="pair.html">Generate Session</a>
+  <a href="qr.html">Scan QR Code</a>
 </body>
 </html>
