@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cypher Pair Code</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Share Tech Mono', monospace;
+      background: linear-gradient(135deg, #000000, #003300);
+      color: #00ff00;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    .card {
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #00ff00;
+      text-align: center;
+      width: 90%;
+      max-width: 400px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #001100;
+      color: #00ff00;
+    }
+
+    input::placeholder {
+      color: #33ff33;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #00ff00;
+      color: #000;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #33ff33;
+    }
+
+    .output {
+      margin-top: 20px;
+      font-size: 14px;
+      background: rgba(0,255,0,0.08);
+      padding: 15px;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #33ff33;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔐 Generate Pair Code</h1>
+  <div class="card">
+    <input type="text" id="phoneNumber" placeholder="Enter phone number e.g. 2348012345678" />
+    <button onclick="generatePairCode()">Generate</button>
+    <div class="output" id="pairCodeOutput"></div>
+  </div>
+  <div class="footer">Session ID: <strong>cypher</strong></div>
+
+  <script>
+    async function generatePairCode() {
+      const number = document.getElementById("phoneNumber").value.trim();
+      if (!number) return alert("Phone number is required");
+
+      const res = await fetch(`/api/pair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ number })
+      });
+
+      const data = await res.json();
+      const output = document.getElementById("pairCodeOutput");
+      if (data.ok) {
+        output.innerText = `✅ Pair Code: ${data.code}\n📞 Phone: ${data.number}`;
+      } else {
+        output.innerText = `❌ Error: ${data.message}`;
+      }
+    }
+  </script>
+</body>
+</html>
