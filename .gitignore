@@ -1,15 +1,6 @@
-# Node modules
 node_modules/
-
-# Environment variables
 .env
-
-# Session credentials (WhatsApp auth state)
 sessions/
-
-# Logs (optional)
 *.log
-
-# OS-specific files
 .DS_Store
 Thumbs.db
