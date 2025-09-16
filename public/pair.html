@@ -1,95 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cypher Pair Code</title>
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <title>Generate Pair Code</title>
   <style>
-    body {
-      font-family: 'Share Tech Mono', monospace;
-      background: linear-gradient(135deg, #000000, #003300);
-      color: #00ff00;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-    }
-    h1 {
-      font-size: 26px;
-      margin-bottom: 20px;
-      text-shadow: 0 0 10px #00ff00;
-    }
-    .card {
-      background: rgba(0,255,0,0.05);
-      border: 1px solid #00ff00;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 20px #00ff00;
-      text-align: center;
-      width: 90%;
-      max-width: 400px;
-    }
-    input, button {
-      width: 100%;
-      padding: 12px;
-      margin-top: 15px;
-      font-size: 16px;
-      border-radius: 6px;
-      border: none;
-    }
-    input {
-      background: #001100;
-      color: #00ff00;
-    }
-    input::placeholder {
-      color: #33ff33;
-    }
-    button {
-      background: #00ff00;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #33ff33;
-    }
-    .output {
-      margin-top: 20px;
-      font-size: 14px;
-      background: rgba(0,255,0,0.08);
-      padding: 15px;
-      border-radius: 10px;
-      white-space: pre-wrap;
-    }
+    body { background-color: #000; color: #0f0; font-family: monospace; text-align: center; padding-top: 50px; }
+    input, button { padding: 10px; font-size: 16px; margin: 10px; }
+    .error { color: red; margin-top: 20px; }
   </style>
 </head>
 <body>
-  <h1>🔐 Generate Pair Code</h1>
-  <div class="card">
-    <input type="text" id="phoneNumber" placeholder="Enter phone number e.g. 2348012345678" />
-    <button onclick="generatePairCode()">Generate</button>
-    <div class="output" id="pairCodeOutput"></div>
-  </div>
+  <h1>🔒 Generate Pair Code</h1>
+  <input type="text" id="number" placeholder="Enter phone number" />
+  <button onclick="generate()">Generate</button>
+  <div id="error" class="error"></div>
 
   <script>
-    async function generatePairCode() {
-      const number = document.getElementById("phoneNumber").value.trim();
-      if (!number) return alert("Phone number is required");
+    async function generate() {
+      const number = document.getElementById("number").value.trim();
+      if (!number) {
+        alert("Phone number missing");
+        return;
+      }
 
-      const res = await fetch(`/api/pair`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ number })
-      });
+      try {
+        const res = await fetch("/api/pair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ number })
+        });
 
-      const data = await res.json();
-      const output = document.getElementById("pairCodeOutput");
-      if (data.ok) {
-        output.innerText = `✅ Pair Code: ${data.code}\n📞 Phone: ${data.number}\n📤 Sent to WhatsApp`;
-      } else {
-        output.innerText = `❌ Error: ${data.message}`;
+        const data = await res.json();
+        if (data.ok) {
+          alert(`✅ Pair code generated: ${data.code}`);
+        } else {
+          document.getElementById("error").textContent = `❌ Error: ${data.message}`;
+        }
+      } catch (err) {
+        document.getElementById("error").textContent = "❌ Error: Failed to connect to server";
       }
     }
   </script>
