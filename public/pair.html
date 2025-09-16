@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generate Pair Code</title>
+  <title>Generate Session</title>
   <style>
     body {
       background-color: #000;
@@ -16,11 +16,8 @@
       height: 100vh;
       margin: 0;
     }
-    h1 {
-      font-size: 24px;
-      margin-bottom: 20px;
-    }
-    input {
+    h1 { font-size: 24px; margin-bottom: 20px; }
+    input, button {
       padding: 10px;
       font-size: 16px;
       width: 250px;
@@ -29,72 +26,43 @@
       border-radius: 4px;
     }
     button {
-      padding: 10px 20px;
-      font-size: 16px;
       background-color: #0f0;
       color: #000;
-      border: none;
-      border-radius: 4px;
       cursor: pointer;
     }
-    button:hover {
-      background-color: #0c0;
-    }
-    .error {
-      color: red;
-      margin-top: 20px;
-      font-size: 14px;
-    }
+    button:hover { background-color: #0c0; }
+    .error { color: red; margin-top: 20px; font-size: 14px; }
   </style>
 </head>
 <body>
-  <h1>🔒 Generate Pair Code</h1>
-  <input type="text" id="token" placeholder="CYPHER TOKENS" />
+  <h1>🔒 Generate Session</h1>
   <input type="text" id="number" placeholder="Enter phone number" />
   <button onclick="generate()">Generate</button>
   <div id="error" class="error"></div>
 
   <script>
     async function generate() {
-      const tokenInput = document.getElementById("token");
-      const numberInput = document.getElementById("number");
+      const number = document.getElementById("number").value.trim();
       const errorDisplay = document.getElementById("error");
-
-      const token = tokenInput.value.trim();
-      const number = numberInput.value.trim();
       errorDisplay.textContent = "";
 
-      if (!token || !number) {
-        alert("Both token and phone number are required");
+      if (!number) {
+        alert("Phone number missing");
         return;
       }
 
       try {
-        // Step 1: Authenticate
-        const loginRes = await fetch("/api/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token })
-        });
-
-        const loginData = await loginRes.json();
-        if (!loginData.ok) {
-          errorDisplay.textContent = `❌ Error: ${loginData.message}`;
-          return;
-        }
-
-        // Step 2: Generate Pair Code
-        const pairRes = await fetch("/api/pair", {
+        const response = await fetch("/api/pair", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ number })
         });
 
-        const pairData = await pairRes.json();
-        if (pairData.ok) {
-          alert(`✅ Pair code generated: ${pairData.code}`);
+        const result = await response.json();
+        if (result.ok) {
+          alert(`✅ Session created for ${result.session}`);
         } else {
-          errorDisplay.textContent = `❌ Error: ${pairData.message}`;
+          errorDisplay.textContent = `❌ Error: ${result.message}`;
         }
       } catch (err) {
         errorDisplay.textContent = "❌ Error: Failed to connect to server";
