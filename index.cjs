@@ -1,24 +1,26 @@
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
-const cookieParser = require("cookie-parser");
 const { makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
 
 const app = express();
 app.use(express.json());
-app.use(cookieParser());
 app.use(express.static("public"));
 
-const ADMIN_TOKEN = process.env["ADMIN"] || "";
-const CUSTOM_PAIR_CODE = process.env["CUSTO"] || "CYPHER-2025";
 const SESSIONS_DIR = path.join(process.cwd(), "sessions");
-
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
 const activeSessions = {};
 
 async function initSession(number) {
   const sessionPath = path.join(SESSIONS_DIR, number);
+  if (!fs.existsSync(sessionPath)) {
+    fs.mkdirSync(sessionPath, { recursive: true });
+    console.log(`[${number}] Session folder created at ${sessionPath}`);
+  } else {
+    console.log(`[${number}] Session folder already exists.`);
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
 
   const sock = makeWASocket({
@@ -29,39 +31,52 @@ async function initSession(number) {
 
   sock.ev.on("creds.update", saveCreds);
   activeSessions[number] = sock;
+
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    console.log(`[${number}] Connection update:`, connection);
+
+    if (connection === "close") {
+      const reason = lastDisconnect?.error?.output?.statusCode;
+      console.log(`[${number}] Connection closed. Reason:`, reason);
+    }
+
+    if (connection === "open") {
+      console.log(`[${number}] WhatsApp session is now active.`);
+      try {
+        await sock.sendMessage(`${number}@s.whatsapp.net`, {
+          text: `✅ Your Cypher session is active.\nSession ID: ${number}`
+        });
+      } catch (err) {
+        console.error(`[${number}] Failed to send WhatsApp message:`, err);
+      }
+    }
+
+    if (qr) {
+      console.log(`[${number}] QR code generated.`);
+    }
+  });
+
   return sock;
 }
 
-app.post("/api/login", (req, res) => {
-  const { token } = req.body;
-  if (token === ADMIN_TOKEN) {
-    res.cookie("token", token, { httpOnly: true });
-    return res.json({ ok: true });
-  }
-  res.status(401).json({ ok: false, message: "Invalid token" });
-});
-
 app.post("/api/pair", async (req, res) => {
   const { number } = req.body;
-  const token = req.cookies.token;
-  if (token !== ADMIN_TOKEN) return res.status(403).json({ ok: false, message: "Unauthorized" });
+  if (!number) return res.status(400).json({ ok: false, message: "Phone number missing" });
 
   try {
     const sock = activeSessions[number] || await initSession(number);
-    await sock.sendMessage(`${number}@s.whatsapp.net`, {
-      text: `✅ Your Cypher session is active.\nSession ID: ${number}\nPair Code: ${CUSTOM_PAIR_CODE}`
-    });
-    return res.json({ ok: true, number, code: CUSTOM_PAIR_CODE });
+    return res.json({ ok: true, session: number });
   } catch (err) {
-    console.error("Baileys error:", err);
-    return res.status(500).json({ ok: false, message: "Failed to generate pair code" });
+    console.error(`[${number}] Pair error:`, err);
+    return res.status(500).json({ ok: false, message: "Failed to generate session" });
   }
 });
 
 app.get("/api/qr", async (req, res) => {
   const { number } = req.query;
-  const token = req.cookies.token;
-  if (token !== ADMIN_TOKEN) return res.status(403).json({ ok: false, message: "Unauthorized" });
+  if (!number) return res.status(400).json({ ok: false, message: "Phone number missing" });
 
   try {
     const sock = activeSessions[number] || await initSession(number);
@@ -73,13 +88,15 @@ app.get("/api/qr", async (req, res) => {
 
     setTimeout(() => {
       if (qr) {
+        console.log(`[${number}] QR ready for delivery.`);
         res.json({ ok: true, qr: `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qr)}&size=300x300` });
       } else {
+        console.warn(`[${number}] QR not available after timeout.`);
         res.json({ ok: false, message: "QR not available" });
       }
     }, 1500);
   } catch (err) {
-    console.error("QR error:", err);
+    console.error(`[${number}] QR error:`, err);
     res.status(500).json({ ok: false, message: "Failed to load QR" });
   }
 });
