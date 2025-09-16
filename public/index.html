@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cypher Pairs</title>
+  <title>Cypher WhatsApp Session Manager</title>
   <style>
     body {
       background: #0b1220;
@@ -30,25 +30,51 @@
     button:hover {
       background: #007acc;
     }
-    .status {
+    label {
+      display: block;
       margin-top: 20px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .status, .pair-code {
+      margin-top: 30px;
       font-size: 14px;
       color: #ccc;
+      white-space: pre-wrap;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #qrImage {
+      margin-top: 20px;
+      max-width: 300px;
+      border: 2px solid #1e90ff;
+      border-radius: 10px;
     }
   </style>
 </head>
 <body>
   <h1>🚀 Cypher WhatsApp Session Manager</h1>
 
-  <input type="text" id="sessionId" placeholder="Enter session ID (e.g. cypher)" />
-  <input type="text" id="adminToken" placeholder="Enter admin token" />
+  <label for="sessionId">Session ID</label>
+  <input type="text" id="sessionId" placeholder="e.g. CYPHER" />
+
+  <label for="adminToken">Admin Token</label>
+  <input type="text" id="adminToken" placeholder="Enter your admin token" />
 
   <br/>
   <button onclick="startSession()">Start Session</button>
   <button onclick="stopSession()">Stop Session</button>
   <button onclick="checkStatus()">Check Status</button>
   <button onclick="viewQR()">View QR</button>
+  <button onclick="generatePairCode()">Generate Pair Code</button>
 
+  <div id="qrContainer">
+    <img id="qrImage" src="" alt="QR Code will appear here" style="display:none;" />
+  </div>
+
+  <div class="pair-code" id="pairCode"></div>
   <div class="status" id="status"></div>
 
   <script>
@@ -89,10 +115,38 @@
       document.getElementById("status").innerText = JSON.stringify(data, null, 2);
     }
 
-    function viewQR() {
+    async function viewQR() {
       const id = document.getElementById("sessionId").value.trim();
       if (!id) return alert("Session ID is required");
-      window.open(`/qr/${id}`, "_blank");
+
+      const res = await fetch(`/qr/${id}`);
+      const html = await res.text();
+
+      const match = html.match(/<img src="([^"]+)"/);
+      if (match && match[1]) {
+        const img = document.getElementById("qrImage");
+        img.src = match[1];
+        img.style.display = "block";
+      } else {
+        alert("QR code not available");
+      }
+    }
+
+    async function generatePairCode() {
+      const id = document.getElementById("sessionId").value.trim();
+      const token = document.getElementById("adminToken").value.trim();
+      if (!id || !token) return alert("Session ID and admin token are required");
+
+      const res = await fetch(`/api/pair-code?id=${id}&number=234XXXXXXXXXX`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": token }
+      });
+      const data = await res.json();
+      if (data.ok && data.qr) {
+        document.getElementById("pairCode").innerText = `Pairing QR: ${data.qr}`;
+      } else {
+        document.getElementById("pairCode").innerText = `Error: ${data.message}`;
+      }
     }
   </script>
 </body>
