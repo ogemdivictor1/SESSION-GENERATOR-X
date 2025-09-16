@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cypher QR Code</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Share Tech Mono', monospace;
+      background: linear-gradient(135deg, #000000, #003300);
+      color: #00ff00;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    .qr-box {
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #00ff00;
+      animation: fadeIn 0.8s ease;
+    }
+
+    img {
+      max-width: 300px;
+      border-radius: 10px;
+      margin-top: 10px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .error {
+      margin-top: 20px;
+      color: red;
+      font-size: 14px;
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 12px;
+      color: #33ff33;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧾 Scan to Pair WhatsApp</h1>
+  <div class="qr-box" id="qrContainer">
+    <p>Loading QR code...</p>
+  </div>
+  <div class="error" id="errorMsg"></div>
+  <div class="footer">Session ID: <strong>cypher</strong></div>
+
+  <script>
+    async function loadQR() {
+      try {
+        const res = await fetch("/api/qr");
+        const data = await res.json();
+        if (data.ok && data.qr) {
+          const container = document.getElementById("qrContainer");
+          container.innerHTML = `<img src="${data.qr}" alt="QR Code" />`;
+        } else {
+          document.getElementById("errorMsg").innerText = "QR code not available.";
+        }
+      } catch (err) {
+        document.getElementById("errorMsg").innerText = "Error loading QR code.";
+      }
+    }
+
+    loadQR();
+  </script>
+</body>
+</html>
