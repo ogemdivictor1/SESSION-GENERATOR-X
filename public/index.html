@@ -3,150 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Cypher WhatsApp Session Manager</title>
+  <title>Cypher Access</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <style>
     body {
-      background: #0b1220;
-      color: #fff;
-      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      font-family: 'Share Tech Mono', monospace;
+      background: linear-gradient(135deg, #000000, #003300);
+      color: #00ff00;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    .card {
+      background: rgba(0, 255, 0, 0.05);
+      border: 1px solid #00ff00;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 0 20px #00ff00;
       text-align: center;
-      padding: 40px;
+      width: 90%;
+      max-width: 400px;
     }
-    input, button {
-      padding: 10px;
-      margin: 10px;
-      font-size: 16px;
-      border-radius: 5px;
-      border: none;
-    }
+
     input {
-      width: 300px;
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #001100;
+      color: #00ff00;
     }
+
+    input::placeholder {
+      color: #33ff33;
+    }
+
     button {
-      background: #1e90ff;
-      color: white;
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      font-size: 16px;
+      border-radius: 6px;
+      border: none;
+      background: #00ff00;
+      color: #000;
       cursor: pointer;
-    }
-    button:hover {
-      background: #007acc;
-    }
-    label {
-      display: block;
-      margin-top: 20px;
       font-weight: bold;
-      font-size: 14px;
+      transition: background 0.3s ease;
     }
-    .status, .pair-code {
-      margin-top: 30px;
-      font-size: 14px;
-      color: #ccc;
-      white-space: pre-wrap;
-      text-align: left;
-      max-width: 600px;
-      margin-left: auto;
-      margin-right: auto;
+
+    button:hover {
+      background: #33ff33;
     }
-    #qrImage {
-      margin-top: 20px;
-      max-width: 300px;
-      border: 2px solid #1e90ff;
-      border-radius: 10px;
+
+    .error {
+      margin-top: 15px;
+      color: red;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
-  <h1>🚀 Cypher WhatsApp Session Manager</h1>
-
-  <label for="sessionId">Session ID</label>
-  <input type="text" id="sessionId" placeholder="e.g. CYPHER" />
-
-  <label for="adminToken">Admin Token</label>
-  <input type="text" id="adminToken" placeholder="Enter your admin token" />
-
-  <br/>
-  <button onclick="startSession()">Start Session</button>
-  <button onclick="stopSession()">Stop Session</button>
-  <button onclick="checkStatus()">Check Status</button>
-  <button onclick="viewQR()">View QR</button>
-  <button onclick="generatePairCode()">Generate Pair Code</button>
-
-  <div id="qrContainer">
-    <img id="qrImage" src="" alt="QR Code will appear here" style="display:none;" />
+  <h1>🔐 Cypher Admin Access</h1>
+  <div class="card">
+    <input type="password" id="adminToken" placeholder="Enter Admin Token" />
+    <button onclick="login()">Unlock Dashboard</button>
+    <div class="error" id="errorMsg"></div>
   </div>
 
-  <div class="pair-code" id="pairCode"></div>
-  <div class="status" id="status"></div>
-
   <script>
-    async function startSession() {
-      const id = document.getElementById("sessionId").value.trim();
+    async function login() {
       const token = document.getElementById("adminToken").value.trim();
-      if (!id || !token) return alert("Session ID and admin token are required");
+      if (!token) return showError("Token required");
 
-      const res = await fetch(`/api/start-session?id=${id}`, {
+      const res = await fetch("/api/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": token },
-        body: JSON.stringify({ id })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token })
       });
+
       const data = await res.json();
-      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
-    }
-
-    async function stopSession() {
-      const id = document.getElementById("sessionId").value.trim();
-      const token = document.getElementById("adminToken").value.trim();
-      if (!id || !token) return alert("Session ID and admin token are required");
-
-      const res = await fetch(`/api/stop-session?id=${id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": token },
-        body: JSON.stringify({ id })
-      });
-      const data = await res.json();
-      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
-    }
-
-    async function checkStatus() {
-      const id = document.getElementById("sessionId").value.trim();
-      if (!id) return alert("Session ID is required");
-
-      const res = await fetch(`/api/status/${id}`);
-      const data = await res.json();
-      document.getElementById("status").innerText = JSON.stringify(data, null, 2);
-    }
-
-    async function viewQR() {
-      const id = document.getElementById("sessionId").value.trim();
-      if (!id) return alert("Session ID is required");
-
-      const res = await fetch(`/qr/${id}`);
-      const html = await res.text();
-
-      const match = html.match(/<img src="([^"]+)"/);
-      if (match && match[1]) {
-        const img = document.getElementById("qrImage");
-        img.src = match[1];
-        img.style.display = "block";
+      if (data.ok) {
+        window.location.href = "/dashboard.html";
       } else {
-        alert("QR code not available");
+        showError(data.message || "Access denied");
       }
     }
 
-    async function generatePairCode() {
-      const id = document.getElementById("sessionId").value.trim();
-      const token = document.getElementById("adminToken").value.trim();
-      if (!id || !token) return alert("Session ID and admin token are required");
-
-      const res = await fetch(`/api/pair-code?id=${id}&number=234XXXXXXXXXX`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": token }
-      });
-      const data = await res.json();
-      if (data.ok && data.qr) {
-        document.getElementById("pairCode").innerText = `Pairing QR: ${data.qr}`;
-      } else {
-        document.getElementById("pairCode").innerText = `Error: ${data.message}`;
-      }
+    function showError(msg) {
+      document.getElementById("errorMsg").innerText = msg;
     }
   </script>
 </body>
