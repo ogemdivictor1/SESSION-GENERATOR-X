@@ -11,7 +11,9 @@ app.use(express.static("public"));
 
 const ADMIN_TOKEN = process.env["ADMIN_TOKEN"] || "";
 const CUSTOM_PAIR_CODE = process.env["CUSTOM_PAIR_CODE"] || "CYPHER-2025";
-const SESSIONS_DIR = "/sessions"; // Use persistent disk path on Render
+
+// ✅ Use local folder instead of root to avoid EACCES error
+const SESSIONS_DIR = path.join(process.cwd(), "sessions");
 
 if (!fs.existsSync(SESSIONS_DIR)) fs.mkdirSync(SESSIONS_DIR);
 
