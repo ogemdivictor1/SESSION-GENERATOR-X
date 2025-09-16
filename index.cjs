@@ -1,5 +1,4 @@
 require("dotenv").config();
-
 const path = require("path");
 const fs = require("fs-extra");
 const express = require("express");
@@ -14,9 +13,6 @@ app.use(express.static(path.join(__dirname, "public")));
 
 const PORT = process.env.PORT || 3000;
 const ADMIN_TOKEN = process.env["CYPHER TOKENS"] || "";
-if (!ADMIN_TOKEN) {
-  console.warn("⚠️ CYPHER TOKENS not set. Protected endpoints will be unprotected until you set it in Render env vars.");
-}
 
 const SESSIONS_DIR = path.join(__dirname, "sessions");
 fs.ensureDirSync(SESSIONS_DIR);
@@ -41,40 +37,29 @@ async function createSession(sessionId) {
   await fs.ensureDir(sessionFolder);
 
   const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
-
-  let version = undefined;
-  try {
-    const v = await fetchLatestBaileysVersion();
-    version = v.version;
-  } catch (e) {}
+  const version = (await fetchLatestBaileysVersion()).version;
 
   const sock = makeWASocket({ auth: state, version });
-
   const meta = { sock, lastQR: null, sessionFolder };
   sockets.set(sessionId, meta);
 
   sock.ev.on("connection.update", async (update) => {
     if (update?.connection === "open") {
-      try {
-        await saveCreds();
-        const jid = sock.user?.id;
-        if (jid) {
-          await sock.sendMessage(jid, {
-            text: `Welcome to Cypher's WhatsApp pairing bot for session IDs. Your session ID is "${sessionId}".`
-          });
-        }
-      } catch (e) {}
+      await saveCreds();
+      const jid = sock.user?.id;
+      if (jid) {
+        await sock.sendMessage(jid, {
+          text: `Welcome to Cypher's WhatsApp pairing bot for session IDs. Your session ID is "${sessionId}".`
+        });
+      }
     }
-
     if (update?.qr) {
       meta.lastQR = update.qr;
-      try { qrcodeTerminal.generate(update.qr, { small: true }); } catch (e) {}
+      qrcodeTerminal.generate(update.qr, { small: true });
     }
   });
 
   sock.ev.on("creds.update", saveCreds);
-  sock.ev.on("messages.upsert", () => {});
-
   return meta;
 }
 
@@ -84,6 +69,7 @@ app.post("/api/start-session", async (req, res) => {
 
   const id = req.body?.id || req.query?.id;
   if (!id) return res.status(400).json({ ok: false, message: "Missing session id" });
+
   try {
     const meta = await createSession(id);
     return res.json({ ok: true, id, inMemory: true, hasCreds: await fs.pathExists(path.join(meta.sessionFolder, "creds.json")) });
@@ -96,19 +82,12 @@ app.get("/qr/:id", async (req, res) => {
   const id = req.params.id;
   const meta = sockets.get(id);
   if (!meta || !meta.lastQR) return res.status(404).send("No QR available for this session.");
-  try {
-    const dataUrl = await qrcode.toDataURL(meta.lastQR);
-    res.setHeader("Content-Type", "text/html");
-    return res.send(`<html><body style="display:flex;align-items:center;justify-content:center;height:100vh;background:#0b1220;color:#fff">
-      <div style="text-align:center">
-        <h2>QR for session: ${id}</h2>
-        <img src="${dataUrl}" alt="QR"/>
-        <p>Scan with WhatsApp</p>
-      </div>
-    </body></html>`);
-  } catch (e) {
-    return res.status(500).json({ ok: false, message: "Failed generating QR image", error: e.message });
-  }
+  const dataUrl = await qrcode.toDataURL(meta.lastQR);
+  res.send(`<html><body style="background:#0b1220;color:#fff;text-align:center;padding-top:50px">
+    <h2>QR for session: ${id}</h2>
+    <img src="${dataUrl}" alt="QR"/>
+    <p>Scan with WhatsApp</p>
+  </body></html>`);
 });
 
 app.post("/api/pair-code", async (req, res) => {
@@ -123,15 +102,12 @@ app.post("/api/pair-code", async (req, res) => {
   if (!meta) return res.status(404).json({ ok: false, message: "Session not started" });
 
   try {
-    const baileys = await import("@whiskeysockets/baileys");
-    const { generatePairingQRCode } = baileys;
-    if (typeof generatePairingQRCode === "function") {
-      const { qr, id: pairingId } = await generatePairingQRCode(meta.sock, number);
-      return res.json({ ok: true, pairingId, message: "Pair code generated", qr });
-    }
-  } catch (e) {}
-
-  return res.json({ ok: false, message: "Automatic pair-code generation not available. Open /qr/" + id + " and scan QR." });
+    const { generatePairingQRCode } = await import("@whiskeysockets/baileys");
+    const { qr, id: pairingId } = await generatePairingQRCode(meta.sock, number);
+    return res.json({ ok: true, pairingId, message: "Pair code generated", qr });
+  } catch (e) {
+    return res.json({ ok: false, message: "Pair-code generation not available. Use QR instead." });
+  }
 });
 
 app.get("/api/status/:id", async (req, res) => {
@@ -150,13 +126,9 @@ app.post("/api/stop-session", async (req, res) => {
   const meta = sockets.get(id);
   if (!meta) return res.status(404).json({ ok: false, message: "Session not found" });
 
-  try {
-    await meta.sock.logout();
-    sockets.delete(id);
-    return res.json({ ok: true, message: "Session stopped" });
-  } catch (e) {
-    return res.status(500).json({ ok: false, message: "Failed to stop session", error: e.message });
-  }
+  await meta.sock.logout();
+  sockets.delete(id);
+  return res.json({ ok: true, message: "Session stopped" });
 });
 
 app.get("/health", (req, res) => res.json({ ok: true, status: "Server is running" }));
