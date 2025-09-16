@@ -1,13 +1,10 @@
 {
   "name": "cypher-pairs",
   "version": "1.0.0",
-  "description": "Cypher Pairs WhatsApp Session Generator",
+  "description": "Cypher WhatsApp Pairing Bot",
   "main": "index.cjs",
   "scripts": {
     "start": "node index.cjs"
-  },
-  "engines": {
-    "node": ">=18"
   },
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.19",
