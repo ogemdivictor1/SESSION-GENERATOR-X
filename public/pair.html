@@ -49,36 +49,52 @@
 </head>
 <body>
   <h1>🔒 Generate Pair Code</h1>
+  <input type="text" id="token" placeholder="CYPHER TOKENS" />
   <input type="text" id="number" placeholder="Enter phone number" />
   <button onclick="generate()">Generate</button>
   <div id="error" class="error"></div>
 
   <script>
     async function generate() {
+      const tokenInput = document.getElementById("token");
       const numberInput = document.getElementById("number");
       const errorDisplay = document.getElementById("error");
 
+      const token = tokenInput.value.trim();
       const number = numberInput.value.trim();
-      errorDisplay.textContent = ""; // Clear previous errors
+      errorDisplay.textContent = "";
 
-      if (!number) {
-        alert("Phone number missing");
+      if (!token || !number) {
+        alert("Both token and phone number are required");
         return;
       }
 
       try {
-        const response = await fetch("/api/pair", {
+        // Step 1: Authenticate
+        const loginRes = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token })
+        });
+
+        const loginData = await loginRes.json();
+        if (!loginData.ok) {
+          errorDisplay.textContent = `❌ Error: ${loginData.message}`;
+          return;
+        }
+
+        // Step 2: Generate Pair Code
+        const pairRes = await fetch("/api/pair", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ number })
         });
 
-        const result = await response.json();
-
-        if (result.ok) {
-          alert(`✅ Pair code generated: ${result.code}`);
+        const pairData = await pairRes.json();
+        if (pairData.ok) {
+          alert(`✅ Pair code generated: ${pairData.code}`);
         } else {
-          errorDisplay.textContent = `❌ Error: ${result.message}`;
+          errorDisplay.textContent = `❌ Error: ${pairData.message}`;
         }
       } catch (err) {
         errorDisplay.textContent = "❌ Error: Failed to connect to server";
